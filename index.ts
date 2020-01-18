@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Configuration } from "@atomist/automation-client";
+import { Configuration, logger, TokenCredentials } from "@atomist/automation-client";
 import {
     anySatisfied,
     metadata,
@@ -45,13 +45,13 @@ import {
 } from "@atomist/sdm-pack-spring";
 import { aspects } from "./lib/aspect/aspects";
 import * as commonCommitRiskScorers from "./lib/aspect/push/commonCommitRiskScorers";
-import { addSuggestedFingerprintCommand } from "./lib/aspect/push/suggestTag";
 import { scorers } from "./lib/scorer/scorers";
 import {
     combinationTaggers,
     taggers,
 } from "./lib/tagger/taggers";
 import { startEmbeddedPostgres } from "./lib/util/postgres";
+import { queryByCriteria } from "@atomist/sdm-pack-aspect/lib/analysis/offline/spider/github/GitHubSpider"
 
 const virtualProjectFinder: VirtualProjectFinder = DefaultVirtualProjectFinder;
 
@@ -72,9 +72,24 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         });
 
     const store = new PostgresProjectAnalysisResultStore(sdmConfigClientFactory(sdm.configuration));
-    sdm.addCommand(addSuggestedFingerprintCommand(
-        isInLocalMode() ? storeFingerprintsFor(store) : undefined,
-    ));
+    sdm.addCommand({
+        name: "SayHello",
+        intent: "say hello",
+        parameters: {
+            owner: { description: "github organization" },
+        },
+        listener: async ci => {
+            logger.error(JSON.stringify(ci.credentials, null, 2));
+            for await (const r of queryByCriteria((ci.credentials as TokenCredentials).token, {
+                githubQueries: ["org:jessitron test-repo"], maxRetrieved: 100, maxReturned: 100,
+            })) {
+                await ci.addressChannels(`Found: ${r.name}`);
+            }
+            await ci.addressChannels("Hello wrold " + ci.parameters.owner);
+        }
+    });
+
+
 
     sdm.addExtensionPacks(
         aspectSupport({
