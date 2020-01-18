@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-import { Configuration, logger, TokenCredentials } from "@atomist/automation-client";
+import { Configuration, logger, TokenCredentials, buttonForCommand } from "@atomist/automation-client";
 
 import * as Octokit from "@octokit/rest";
 import {
@@ -74,18 +74,32 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         });
 
     const store = new PostgresProjectAnalysisResultStore(sdmConfigClientFactory(sdm.configuration));
-    sdm.addCommand({
+    sdm.addCommand<{ owner: string }>({
         name: "SayHello",
         intent: "say hello",
         parameters: {
             owner: { description: "github organization" },
         },
         listener: async ci => {
-            logger.error(JSON.stringify(ci.credentials, null, 2));
+            const owner = ci.parameters.owner;
             for await (const r of queryByCriteria((ci.credentials as TokenCredentials).token, {
                 githubQueries: ["org:jessitron test-repo"], maxRetrieved: 100, maxReturned: 100,
             })) {
-                await ci.addressChannels(`Found: ${r.name}`);
+                const repo = r.name;
+                await ci.addressChannels({
+                    text: `Found: ${r.name}`,
+                    attachments: [
+                        {
+                            text: "This has a button",
+                            fallback: "yo",
+                            actions: [
+                                buttonForCommand({
+                                    text: "Delete",
+                                }, "DeleteRepo", { owner, repo })
+                            ]
+                        }
+                    ]
+                });
             }
             await ci.addressChannels("Hello wrold " + ci.parameters.owner);
         }
@@ -101,7 +115,9 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         listener: async ci => {
             const token = (ci.credentials as TokenCredentials).token;
             const { owner, repo } = ci.parameters;
-            await ci.addressChannels(`Going to delete: ${owner}/${repo}`)
+            await ci.addressChannels({
+                text: `Going to delete: ${owner}/${repo}`,
+            })
             const octokit = new Octokit({
                 auth: token ? "token " + token : undefined,
                 baseUrl: "https://api.github.com",
@@ -113,7 +129,7 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
                 logger.warn("Result: " + JSON.stringify(r, null, 2));
                 await ci.addressChannels("Well, that was something");
             } catch (e) {
-                logger.error(e);
+                logger.error((e as Error).stack);
                 await ci.addressChannels("It didn't work");
             }
         }
