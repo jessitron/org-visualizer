@@ -23,7 +23,6 @@ import {
     ContributingAspect,
     ExposedSecrets,
     gitActiveCommitters,
-    GitRecency,
     globAspect,
     license,
     LicensePresence,
@@ -57,6 +56,7 @@ import { DirectMavenDependencies } from "./spring/directMavenDependencies";
 import { SpringBootStarter } from "./spring/springBootStarter";
 import { SpringBootVersion } from "./spring/springBootVersion";
 import { TravisScriptsAspect } from "./travis/travisAspects";
+import { GitRecency } from "./gitActivity";
 
 /**
  * The aspects managed by this SDM.
@@ -65,49 +65,20 @@ import { TravisScriptsAspect } from "./travis/travisAspects";
 export function aspects(): Aspect[] {
     return [
         DockerFrom,
-        DockerfilePath,
-        DockerPorts,
         license(),
-        // Based on license, decide the presence of a license: Not spread
-        LicensePresence,
-        SpringBootStarter,
-        TypeScriptVersion,
-        codeOwnership(),
         NpmDependencies,
         codeOfConduct(),
         ExposedSecrets,
-        TravisScriptsAspect,
         BranchCount,
         GitRecency,
-        // This is expensive as it requires deeper cloning
-        gitActiveCommitters({ commitDepth: 30 }),
-        // This is also expensive
-        CodeMetricsAspect,
         StackAspect,
         CiAspect,
-        JavaBuild,
-        // Don't show these
-        globAspect({ name: "csproject", displayName: undefined, glob: "*.csproj" }),
-        globAspect({ name: "snyk", displayName: undefined, glob: ".snyk" }),
         ChangelogAspect,
         ContributingAspect,
-        globAspect({ name: "azure-pipelines", displayName: "Azure pipeline", glob: "azure-pipelines.yml" }),
-        globAspect({ name: "readme", displayName: "Readme file", glob: "README.md" }),
-        CsProjectTargetFrameworks,
         SpringBootVersion,
-        // allMavenDependenciesAspect,    // This is expensive
         DirectMavenDependencies,
         PythonDependencies,
-        K8sSpecs,
-        LeinDeps,
-
         // Time builds
         buildTimeAspect(),
-
-        // Asks for human intervention to tag the commit
-        suggestTag({ tag: "frivolous", reason: "You people are silly", test: async () => true }),
-
-        // Show confirmed tag information
-        ConfirmedTags,
     ];
 }
