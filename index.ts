@@ -83,14 +83,13 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         listener: async ci => {
             const owner = ci.parameters.owner;
             for await (const r of queryByCriteria((ci.credentials as TokenCredentials).token, {
-                githubQueries: ["org:jessitron test-repo"], maxRetrieved: 100, maxReturned: 100,
+                githubQueries: [`org:${owner} test-repo`], maxRetrieved: 100, maxReturned: 100,
             })) {
                 const repo = r.name;
                 await ci.addressChannels({
-                    text: `Found: ${r.name}`,
                     attachments: [
                         {
-                            text: "This has a button",
+                            text: `Found: ${repo}`,
                             fallback: "yo",
                             actions: [
                                 buttonForCommand({
