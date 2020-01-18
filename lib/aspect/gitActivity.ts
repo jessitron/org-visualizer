@@ -41,17 +41,13 @@ import {
 
 const exec = util.promisify(child_process.exec);
 
-const gitLastCommitCommand = "git log -1 --format=%cd --date=short";
-
 export const GitRecencyType = "git-recency";
 
 export interface GitRecencyData {
     lastCommitTime: number;
 }
 
-export function isGitRecencyFingerprint(fp: FP): fp is FP<GitRecencyData> {
-    return fp.type === GitRecencyType;
-}
+const gitLastCommitCommand = "git log -1 --format=%cd --date=short";
 
 const gitRecencyExtractor: ExtractFingerprint<GitRecencyData> =
     async p => {
@@ -60,7 +56,6 @@ const gitRecencyExtractor: ExtractFingerprint<GitRecencyData> =
             return undefined;
         }
         const data = { lastCommitTime: new Date(r.stdout.trim()).getTime() };
-
         return fingerprintOf({
             type: GitRecencyType,
             data,
@@ -86,63 +81,6 @@ export const GitRecency: Aspect<GitRecencyData> = {
         },
     },
 };
-
-function committersCommands(commitDepth: number): string[] {
-    return [
-        `git fetch --depth=${commitDepth}`,
-        `git shortlog -s -n --all --max-count ${commitDepth}`,
-    ];
-}
-
-export const GitActivesType = "git-actives";
-
-function activeCommittersExtractor(commitDepth: number): ExtractFingerprint<CountData> {
-    return async p => {
-        const cwd = (p as LocalProject).baseDir;
-        const cmds = committersCommands(commitDepth);
-        const r = await showTiming(`commands ${cmds} in ${cwd}`, async () => {
-            exec(cmds[0], { cwd });
-            return exec(cmds[1], { cwd });
-        });
-        if (!r.stdout) {
-            return undefined;
-        }
-        const count = r.stdout.trim().split("\n").length;
-        const data = { count };
-
-        return fingerprintOf({
-            type: GitActivesType,
-            data,
-        });
-    };
-}
-
-/**
- * Active committers. This is expensive as it requires cloning the
- * last commitDepth commits
- */
-export function gitActiveCommitters(opts: { commitDepth: number }): CountAspect {
-    return {
-        name: GitActivesType,
-        displayName: "Active git committers",
-        baseOnly: true,
-        extract: activeCommittersExtractor(opts.commitDepth),
-        toDisplayableFingerprintName: () => `Active git committers to ${opts.commitDepth} commits`,
-        toDisplayableFingerprint: fp => {
-            return bandFor<SizeBands>({
-                low: { upTo: 4 },
-                medium: { upTo: 12 },
-                high: Default,
-            }, fp.data.count, { includeNumber: true });
-        },
-        stats: {
-            defaultStatStatus: {
-                entropy: false,
-            },
-            basicStatsPath: "count",
-        },
-    };
-}
 
 function lastDateToActivityBand(date: Date): string {
     const days = daysSince(date);
