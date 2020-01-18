@@ -28,6 +28,7 @@ import {
     DeliveryGoals,
     isInLocalMode,
 } from "@atomist/sdm-core";
+import * as slack from "@atomist/slack-messages";
 import {
     aspectSupport,
     DefaultVirtualProjectFinder,
@@ -75,32 +76,37 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
 
     const store = new PostgresProjectAnalysisResultStore(sdmConfigClientFactory(sdm.configuration));
     sdm.addCommand<{ owner: string }>({
-        name: "SayHello",
-        intent: "say hello",
+        name: "RemoveTestRepos",
+        intent: "clean up test repos",
+        autoSubmit: true,
         parameters: {
             owner: { description: "github organization" },
         },
         listener: async ci => {
+            let count = 0;
             const owner = ci.parameters.owner;
+            const githubQuery = `org:${owner} test-repo`;
+            await ci.addressChannels(`Searching GitHub for repositories that match: ${githubQuery}`)
             for await (const r of queryByCriteria((ci.credentials as TokenCredentials).token, {
-                githubQueries: [`org:${owner} test-repo`], maxRetrieved: 100, maxReturned: 100,
+                githubQueries: [githubQuery], maxRetrieved: 100, maxReturned: 100,
             })) {
                 const repo = r.name;
+                count++;
                 await ci.addressChannels({
                     attachments: [
                         {
-                            text: `Found: ${repo}`,
+                            text: `Found: ${githubUrl(owner, repo)}`,
                             fallback: "yo",
                             actions: [
                                 buttonForCommand({
-                                    text: "Delete",
+                                    text: "Delete", style: "danger",
                                 }, "DeleteRepo", { owner, repo })
                             ]
                         }
                     ]
                 });
             }
-            await ci.addressChannels("Hello wrold " + ci.parameters.owner);
+            await ci.addressChannels(`Total of ${count} test repos found in ${owner}`);
         }
     });
 
@@ -115,7 +121,7 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
             const token = (ci.credentials as TokenCredentials).token;
             const { owner, repo } = ci.parameters;
             await ci.addressChannels({
-                text: `Going to delete: ${owner}/${repo}`,
+                text: `Deleting: ${githubUrl(owner, repo)}`,
             })
             const octokit = new Octokit({
                 auth: token ? "token " + token : undefined,
@@ -126,10 +132,10 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
 
                 const r = await octokit.repos.delete({ owner, repo });
                 logger.warn("Result: " + JSON.stringify(r, null, 2));
-                await ci.addressChannels("Well, that was something");
+                await ci.addressChannels("Deletion complete :oh-yeaahh:");
             } catch (e) {
                 logger.error((e as Error).stack);
-                await ci.addressChannels("It didn't work");
+                await ci.addressChannels("It didn't work :boo:");
             }
         }
     })
@@ -188,3 +194,7 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         name: "Org Visualizer",
         preProcessors: [startEmbeddedPostgres],
     });
+
+function githubUrl(owner: string, repo: string) {
+    return slack.url(`https://github.com/${owner}/${repo}`, `${owner}/${repo}`)
+}
