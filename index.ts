@@ -15,6 +15,8 @@
  */
 
 import { Configuration, logger, TokenCredentials } from "@atomist/automation-client";
+
+import * as Octokit from "@octokit/rest";
 import {
     anySatisfied,
     metadata,
@@ -88,6 +90,34 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
             await ci.addressChannels("Hello wrold " + ci.parameters.owner);
         }
     });
+
+    sdm.addCommand<{ owner: string, repo: string }>({
+        name: "DeleteRepo",
+        intent: "delete repository",
+        parameters: {
+            owner: { description: "github organization" },
+            repo: { description: "name of repository" }
+        },
+        listener: async ci => {
+            const token = (ci.credentials as TokenCredentials).token;
+            const { owner, repo } = ci.parameters;
+            await ci.addressChannels(`Going to delete: ${owner}/${repo}`)
+            const octokit = new Octokit({
+                auth: token ? "token " + token : undefined,
+                baseUrl: "https://api.github.com",
+            });
+
+            try {
+
+                const r = await octokit.repos.delete({ owner, repo });
+                logger.warn("Result: " + JSON.stringify(r, null, 2));
+                await ci.addressChannels("Well, that was something");
+            } catch (e) {
+                logger.error(e);
+                await ci.addressChannels("It didn't work");
+            }
+        }
+    })
 
 
 
