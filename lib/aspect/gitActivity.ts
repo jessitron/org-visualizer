@@ -62,6 +62,17 @@ const gitRecencyExtractor: ExtractFingerprint<GitRecencyData> =
         });
     };
 
+
+function lastDateToActivityBand(date: Date): string {
+    const days = daysSince(date);
+    return bandFor<AgeBands>({
+        current: { upTo: 7 },
+        recent: { upTo: 30 },
+        ancient: { upTo: 365 },
+        prehistoric: Default,
+    }, days, { includeNumber: true });
+}
+
 /**
  * Classify since last commit
  */
@@ -81,16 +92,6 @@ export const GitRecency: Aspect<GitRecencyData> = {
         },
     },
 };
-
-function lastDateToActivityBand(date: Date): string {
-    const days = daysSince(date);
-    return bandFor<AgeBands>({
-        current: { upTo: 30 },
-        recent: { upTo: 200 },
-        ancient: { upTo: 500 },
-        prehistoric: Default,
-    }, days, { includeNumber: true });
-}
 
 const oneDay = 24 * 60 * 60 * 1000; // hours*minutes*seconds*milliseconds
 
