@@ -25,19 +25,15 @@ import {
 } from "@atomist/sdm-pack-fingerprint";
 import * as child_process from "child_process";
 import * as util from "util";
-import { showTiming } from "@atomist/sdm-pack-aspect/lib/util/showTiming";
-import {
-    CountAspect,
-    CountData,
-} from "@atomist/sdm-pack-aspect/lib/aspect/compose/commonTypes";
 import {
     bandFor,
     Default,
 } from "@atomist/sdm-pack-aspect/lib/util/bands";
 import {
     AgeBands,
-    SizeBands,
 } from "@atomist/sdm-pack-aspect/lib/util/commonBands";
+
+// atomist analyze github by query --cloneUnder $HOME/temp --poolSize 4 --update true --query "org:platformsh size:<500"
 
 const exec = util.promisify(child_process.exec);
 
@@ -50,8 +46,8 @@ export interface GitRecencyData {
 const gitLastCommitCommand = "git log -1 --format=%cd --date=short";
 
 const gitRecencyExtractor: ExtractFingerprint<GitRecencyData> =
-    async p => {
-        const r = await exec(gitLastCommitCommand, { cwd: (p as LocalProject).baseDir });
+    async clonedRepository => {
+        const r = await exec(gitLastCommitCommand, { cwd: (clonedRepository as LocalProject).baseDir });
         if (!r.stdout) {
             return undefined;
         }
