@@ -75,6 +75,8 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
         });
 
     const store = new PostgresProjectAnalysisResultStore(sdmConfigClientFactory(sdm.configuration));
+
+
     sdm.addCommand<{ owner: string }>({
         name: "RemoveTestRepos",
         intent: "clean up test repos",
@@ -139,8 +141,6 @@ export const configuration: Configuration = configure<TestGoals>(async sdm => {
             }
         }
     })
-
-
 
     sdm.addExtensionPacks(
         aspectSupport({
